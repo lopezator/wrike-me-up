@@ -1,0 +1,36 @@
+name: Wrike-me-up bot
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  wrike-bot:
+    if: ${{ contains(github.event.comment.body, '@wrike-me-up') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Extract task ID and email
+        id: extract
+        run: |
+          echo "Parsing comment..."
+          COMMENT_BODY="${{ github.event.comment.body }}"
+          TASK_ID=$(echo "$COMMENT_BODY" | awk '/@wrike-me-up log/ {print $3}')
+          GITHUB_USERNAME="${{ github.event.comment.user.login }}"
+          echo "task_id=$TASK_ID" >> $GITHUB_ENV
+          echo "GITHUB_USERNAME=$GITHUB_USERNAME" >> $GITHUB_ENV
+
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Build & run Wrike bot
+        env:
+          WRIKE_ME_UP: ${{ secrets.WRIKE_ME_UP }}
+          WRIKE_TASK_ID: ${{ env.task_id }}
+        run: |
+          go run cmd/wmu/main.go $WRIKE_TASK_ID $WRIKE_EMAIL
